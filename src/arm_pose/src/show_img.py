@@ -44,7 +44,7 @@ class ShowImage(object):
         super(ShowImage, self).__init__()
         self.count = 0
         # init the node
-        rospy.init_node('projection_node', anonymous=False)
+        rospy.init_node('show_image_node', anonymous=False)
 
         self.image = np.zeros((546, 420,3), dtype=np.uint8)
         # self.data = None

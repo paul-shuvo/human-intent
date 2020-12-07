@@ -15,6 +15,7 @@ import time
 
 dir_path = dirname(dirname(abspath(__file__)))
 os.chdir(dir_path)
+print(os.getcwd())
 
 
 import cv2
@@ -387,7 +388,10 @@ class ForearmPosePublish():
             pose = self.alphapose.process(self.im_name, image)
             if pose is not None:
                 self.msg.header.stamp = rospy.Time.now()
-                self.msg.data = pose['result'][0]['keypoints'].cpu().detach().numpy()[7:11, :].flatten('C')
+                try:
+                    self.msg.data = pose['result'][0]['keypoints'].cpu().detach().numpy()[7:11, :].flatten('C')
+                except IndexError as error:
+                    rospy.loginfo(error)
                 # print(msg.data.shape)
                 self.pub.publish(self.msg)
 
