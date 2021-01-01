@@ -7,7 +7,7 @@ import numpy as np
 import message_filters
 import sensor_msgs.point_cloud2 as pc2
 from sensor_msgs.msg import Image, PointCloud2, CameraInfo
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import PoseStamped
 
 from sympy import Point3D, Plane
 from sympy.geometry import Line3D
@@ -17,19 +17,33 @@ from sympy.geometry import Line3D
 # import numpy as np
 #listener
 
+# class Paul:
+#     def __init__(self):
+#         self.job = 'CS Grad Student'
+#         self.hobbies = ['Playing Flute', 'Dancing Bachata']
+
+
+
+
 class CanvasInteraction:
     def __init__(self, canvas_pts):  
+        """
+        Initializes the class and starts the subscribers.
+
+        Args:
+            canvas_pts (`ndarray`): Three pixel locations (co-planar in 3D space) on an image that describe a surface.
+        """
         # self.K is the camera matrix retrieved from /kinect2/qhd/camera_info 
         self.K = np.array([540.68603515625, 0.0, 479.75, 0.0, 540.68603515625, 269.75, 0.0, 0.0, 1.0]).reshape((3,3), order='C')
         self.canvas_pts = canvas_pts
         self.canvas_pts_3D = np.zeros((len(self.canvas_pts), 3))
         self.arm_points = np.zeros((2, 2), dtype=np.int16).tolist()
         self.arm_points_3D = np.random.random_sample((2, 3))
-        # self.leftarm_t = canvas_pts.append()
 
         rospy.init_node('projection_node', anonymous=False)
-        self.pub = rospy.Publisher('/canvas_point', Pose, queue_size=10)
-        self.msg = Pose()
+        self.pub = rospy.Publisher('/point_on_canvas', PoseStamped, queue_size=10)
+        self.msg = PoseStamped()
+        self.frame_id = 'kinect2_rgb_optical_frame'
         # forearm_pose_sub = message_filters.Subscriber('/kinect2/qhd/camera_info', CameraInfo)
         forearm_pose_sub = message_filters.Subscriber('/forearm_pose', Floats)
         pointcloud_sub = message_filters.Subscriber('/kinect2/qhd/points', PointCloud2)      
@@ -41,8 +55,9 @@ class CanvasInteraction:
     def update_points(self, forearm_pose, pointcloud):
         # choose left arm for now
         arm_loc_np = np.asarray(forearm_pose.data, dtype=np.int16)
-        # print(arm_loc_np)
-        self.arm_points = arm_loc_np.reshape((arm_loc_np.shape[0]//2, -1), order='C')[[0,2]].tolist()
+        left_arm_joint_pts = [0, 2]
+        right_arm_joint_pts = [1, 3]
+        self.arm_points = arm_loc_np.reshape((arm_loc_np.shape[0]//2, -1), order='C')[left_arm_joint_pts].tolist()
         print(self.arm_points)
         # hold the current values
         pre_canvas_pts_3d = self.canvas_pts_3D
@@ -78,20 +93,25 @@ class CanvasInteraction:
             left_arm_line_3D = Line3D(Point3D(*self.arm_points_3D[0, :]), Point3D(*self.arm_points_3D[1, :]))
             canvas_plane = Plane(Point3D(*self.canvas_pts_3D[0, :]), Point3D(*self.canvas_pts_3D[1, :]), Point3D(*self.canvas_pts_3D[2, :]))
             canvas_plane_point = canvas_plane.intersection(left_arm_line_3D)[0].evalf()
-            self.msg.position.x = canvas_plane_point.x
-            self.msg.position.y = canvas_plane_point.y
-            self.msg.position.z = canvas_plane_point.z
+            
+            self.msg.header.stamp = rospy.Time.now()
+            self.msg.header.frame_id = 'kinect2_rgb_optical_frame'
+            self.msg.pose.position.x = canvas_plane_point.x
+            self.msg.pose.position.y = canvas_plane_point.y
+            self.msg.pose.position.z = canvas_plane_point.z
             # Make sure the quaternion is valid and normalized
-            self.msg.orientation.x = 0.0
-            self.msg.orientation.y = 0.0
-            self.msg.orientation.z = 0.0
-            self.msg.orientation.w = 1.0
-            print(canvas_plane_point)
-            print(canvas_plane_point.y)
+            self.msg.pose.orientation.x = 0.0
+            self.msg.pose.orientation.y = 0.0
+            self.msg.pose.orientation.z = 0.0
+            self.msg.pose.orientation.w = 1.0
+            self.frame_id += 1
+            # print(canvas_plane_point)
+            # print(canvas_plane_point.y)
         except ValueError as error:
             rospy.loginfo(error)
 
         self.pub.publish(self.msg)
+        print('msg published')
 
 
 
