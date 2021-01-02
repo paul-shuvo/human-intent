@@ -4,19 +4,26 @@ from os import getcwd, listdir, chdir
 import numpy as np
 import time
 import cv2
+import json
+
+# Change directory to the file directory
 dir_path = dirname(abspath(__file__))
 chdir(dir_path)
 
 # ROS imports
 
 import rospy
-# from std_msgs.msg import String
+from std_msgs.msg import String
 from arm_pose.msg import Floats
 from sensor_msgs.msg import PointCloud2, Image
 # from rospy.numpy_msg import numpy_msg
 
+# TODO: Add docstring
+# TODO: Make an additional pose detection class
+
 class ObjectDetection():
     def __init__(self, objects='all'):
+        # '/objects' contains the images of the object
         self.object_path = join(dir_path, 'objects')
         # print(self.object_path)
         image_files = [join(self.object_path, f) for f in listdir(self.object_path) if f.endswith(('.jpg', '.png'))]
@@ -36,10 +43,11 @@ class ObjectDetection():
         # cv2.waitKey(5000)
         self.frame_rate = 2
         self.prev = 0
-        self.msg = Floats()
 
         rospy.init_node('object_detection', anonymous=False)
-        self.pub = rospy.Publisher('detected_object', Floats, queue_size=10)
+        self.obj_boundary_msg = ''
+        self.obj_boundary_info = {}
+        self.obj_boundary_pub = rospy.Publisher('detected_object', String, queue_size=10)
 
         r = rospy.Rate(self.frame_rate) # 10Hz
 
@@ -56,13 +64,19 @@ class ObjectDetection():
         time_elapsed = time.time() - self.prev
         if time_elapsed > 1. / self.frame_rate:
             self.prev = time.time()
-            for query_im in self.query_object_im.values():
-                self.detect(query_im, image)
+            for object_name, query_im in self.query_object_im.items():
+                self.detect(object_name, query_im, image)
+        # Convert the dictionary to string
+        self.obj_boundary_msg = json.dumps(self.obj_boundary_info)
+        self.obj_boundary_pub.publish(self.obj_boundary_msg)
 
-    def detect(self, query_im, kinect_im, show_im=True):
+    def detect(self, object_name, query_im, kinect_im, show_im=True):
+        # minimum matching points needed to consider a match
         MIN_MATCH_COUNT = 10
+        
         # img1 = cv.imread('box.png',0)          # queryImage
         # img2 = cv.imread('box_in_scene.png',0) # trainImage
+
         # Initiate SIFT detector
         sift = cv2.SIFT_create()
         # find the keypoints and descriptors with SIFT
@@ -87,11 +101,16 @@ class ObjectDetection():
             h,w,d = query_im.shape
             pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
             dst = cv2.perspectiveTransform(pts,M)
+            # update the location of the object in the image
+            # converted to list as ndarray object is not json serializable
+            self.obj_boundary_info[object_name] = dst.tolist()
             if show_im:
                 result = cv2.polylines(kinect_im,[np.int32(dst)],True,255,3, cv2.LINE_AA)
                 cv2.imshow('Detected Objects', result)
                 cv2.waitKey(30)
         else:
+            # Set None if the object isn't detected
+            self.obj_boundary_info[object_name] = None
             rospy.loginfo( "Not enough matches are found - {}/{}".
                 format(len(good), MIN_MATCH_COUNT) )
             matchesMask = None
