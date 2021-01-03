@@ -12,7 +12,7 @@ from sensor_msgs.msg import Image, PointCloud2, CameraInfo
 from geometry_msgs.msg import PoseStamped
 
 from sympy import Point3D, Plane, symbols, N
-from sympy.geometry import Line3D, Segment
+from sympy.geometry import Line3D, Segment, Ray3D
 # import cv2
 # import os
 # from roslib import message
@@ -50,6 +50,7 @@ class ObjectInteraction:
         self.pub = rospy.Publisher('/object_selected', PoseStamped, queue_size=10)
         self.msg = PoseStamped()
         self.frame_id = 'kinect2_rgb_optical_frame'
+        self.point = Point3D(0,0,0)
         # forearm_pose_sub = message_filters.Subscriber('/kinect2/qhd/camera_info', CameraInfo)
         forearm_pose_sub = message_filters.Subscriber('/forearm_pose', Floats)
         pointcloud_sub = message_filters.Subscriber('/kinect2/qhd/points', PointCloud2)
@@ -97,10 +98,11 @@ class ObjectInteraction:
             # segments = [Segment(tuple(pts[0]), tuple(pts[1])) for pts in edge_pts]
             arb_x = [int(i) for i in list(Segment(tuple(center), tuple(right_c)).arbitrary_point(self.t).subs(self.t, t_val).evalf())]
             arb_y = [int(i) for i in list(Segment(tuple(center), tuple(top_c)).arbitrary_point(self.t).subs(self.t, t_val).evalf())]
-            
+            center = [int(i) for i in center]
+
             nan_flag = False
             pts_3d = []
-            for dt in pc2.read_points(pointcloud, field_names={'x','y','z'}, skip_nans=False, uvs=[arb_x, arb_y]):
+            for dt in pc2.read_points(pointcloud, field_names={'x','y','z'}, skip_nans=False, uvs=[center, arb_x, arb_y]):
                 # check if it's not NaN
                 if dt[0] == dt[0]:
                     # print(f'x: {dt[0]}, y: {dt[1]}, z: {dt[2]}')
@@ -110,15 +112,20 @@ class ObjectInteraction:
                     break
             
             if not nan_flag:
-                self.detected_object_plane[object_name] = Plane(*pts_3d)
+                self.point = Point3D(pts_3d[0])
+                self.detected_object_plane[object_name] = Plane(pts_3d[1], pts_3d[2])
+                print(self.detected_object_plane)
             # except TypeError as e:
             #     rospy.loginfo(e)
             #     continue
-        print('end')
+        # print('end')
 
     def callback(self, forearm_pose, pointcloud, detected_object):
         self.update_points(forearm_pose, pointcloud, detected_object)
-        print(self.detected_object_plane)
+        for object_name, plane in self.detected_object_plane.items():
+            print(object_name)
+            intersect_point = self.detected_object_plane[object_name].intersection(Line3D(*self.arm_points_3D))
+            print(intersect_point[0].distance(self.point).evalf())
         # try:
         #     left_arm_line_3D = Line3D(Point3D(*self.arm_points_3D[0, :]), Point3D(*self.arm_points_3D[1, :]))
         #     canvas_plane = Plane(Point3D(*self.canvas_pts_3D[0, :]), Point3D(*self.canvas_pts_3D[1, :]), Point3D(*self.canvas_pts_3D[2, :]))
