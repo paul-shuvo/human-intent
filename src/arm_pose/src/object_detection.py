@@ -28,6 +28,7 @@ class ObjectDetection():
         # print(self.object_path)
         image_files = [join(self.object_path, f) for f in listdir(self.object_path) if f.endswith(('.jpg', '.png'))]
         self.query_object_im = {}
+        # TODO: finish teh else logic
         if objects is 'all':
             for im_file in image_files:
                 object_name = im_file.split('/')[-1].split('.')[0]
@@ -47,7 +48,7 @@ class ObjectDetection():
         rospy.init_node('object_detection', anonymous=False)
         self.obj_boundary_msg = ''
         self.obj_boundary_info = {}
-        self.obj_boundary_pub = rospy.Publisher('detected_object', String, queue_size=10)
+        self.obj_boundary_pub = rospy.Publisher('/detected_object', String, queue_size=10)
 
         r = rospy.Rate(self.frame_rate) # 10Hz
 
@@ -66,6 +67,7 @@ class ObjectDetection():
             self.prev = time.time()
             for object_name, query_im in self.query_object_im.items():
                 self.detect(object_name, query_im, image)
+
         # Convert the dictionary to string
         self.obj_boundary_msg = json.dumps(self.obj_boundary_info)
         self.obj_boundary_pub.publish(self.obj_boundary_msg)
@@ -99,11 +101,11 @@ class ObjectDetection():
             M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC,5.0)
             matchesMask = mask.ravel().tolist()
             h,w,d = query_im.shape
-            pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1,1,2)
+            pts = np.float32([ [0,0],[0,h-1],[w-1,h-1],[w-1,0] ]).reshape(-1, 1, 2)
             dst = cv2.perspectiveTransform(pts,M)
             # update the location of the object in the image
             # converted to list as ndarray object is not json serializable
-            self.obj_boundary_info[object_name] = dst.tolist()
+            self.obj_boundary_info[object_name] = dst[:, 0, :].tolist()
             if show_im:
                 result = cv2.polylines(kinect_im,[np.int32(dst)],True,255,3, cv2.LINE_AA)
                 cv2.imshow('Detected Objects', result)
