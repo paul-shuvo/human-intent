@@ -72,7 +72,7 @@ class ObjectDetection():
         self.obj_boundary_msg = json.dumps(self.obj_boundary_info)
         self.obj_boundary_pub.publish(self.obj_boundary_msg)
 
-    def detect(self, object_name, query_im, kinect_im, show_im=True):
+    def detect(self, object_name, query_im, kinect_im, show_image=False):
         # minimum matching points needed to consider a match
         MIN_MATCH_COUNT = 10
         
@@ -106,7 +106,7 @@ class ObjectDetection():
             # update the location of the object in the image
             # converted to list as ndarray object is not json serializable
             self.obj_boundary_info[object_name] = dst[:, 0, :].tolist()
-            if show_im:
+            if show_image:
                 result = cv2.polylines(kinect_im,[np.int32(dst)],True,255,3, cv2.LINE_AA)
                 cv2.imshow('Detected Objects', result)
                 cv2.waitKey(30)

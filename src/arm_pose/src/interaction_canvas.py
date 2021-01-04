@@ -104,7 +104,7 @@ class CanvasInteraction:
             self.msg.pose.orientation.y = 0.0
             self.msg.pose.orientation.z = 0.0
             self.msg.pose.orientation.w = 1.0
-            self.frame_id += 1
+            # self.frame_id += 1
             # print(canvas_plane_point)
             # print(canvas_plane_point.y)
         except ValueError as error:
