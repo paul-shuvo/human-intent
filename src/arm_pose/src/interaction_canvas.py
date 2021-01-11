@@ -113,6 +113,43 @@ class CanvasInteraction:
         self.pub.publish(self.msg)
         print('msg published')
 
+    def get_points_on_plane(self, bounding_box, pointcloud):
+        n_points = 20
+        bounding_box = np.array(bounding_box)
+        points = np.vstack((self.points_on_triangle(bounding_box[:3], n_points),self.points_on_triangle(bounding_box[1:], n_points))).astype(int).tolist()
+
+        count = 0
+        points_3d = np.zeros((2,3))
+        for dt in pc2.read_points(pointcloud, field_names={'x','y','z'}, skip_nans=True, uvs=points):
+            # check if it's not NaN
+            # if dt[0] == dt[0]:
+                # print(f'x: {dt[0]}, y: {dt[1]}, z: {dt[2]}')
+            points_3d[count] = dt
+            count += 1
+            if count is 2:
+                break
+        
+        return [True, points_3d] if count is 2 else [False, None]
+            
+    def points_on_triangle(self, v, n):
+        '''
+        Generates uniformly distributed points on a given triangle.
+
+        Parameters
+        ----------
+        v : ndarray
+            [description]
+        n : int
+            [description]
+
+        Returns
+        -------
+        [type]
+            [description]
+        '''
+        x = np.sort(np.random.rand(2, n), axis=0)
+        return np.column_stack([x[0], x[1]-x[0], 1.0-x[1]]) @ v
+
 
 
 def read_depth(width, height, data) :

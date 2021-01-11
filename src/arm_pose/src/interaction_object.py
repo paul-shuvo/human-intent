@@ -13,17 +13,6 @@ from geometry_msgs.msg import PoseStamped
 
 from sympy import Point3D, Plane, symbols, N
 from sympy.geometry import Line3D, Segment, Ray3D
-# import cv2
-# import os
-# from roslib import message
-# import numpy as np
-#listener
-
-# class Paul:
-#     def __init__(self):
-#         self.job = 'CS Grad Student'
-#         self.hobbies = ['Playing Flute', 'Dancing Bachata']
-
 
 
 
@@ -36,7 +25,7 @@ class ObjectInteraction:
             canvas_pts (`ndarray`): Three pixel locations (co-planar in 3D space) on an image that describe a surface.
         """
         # self.K is the camera matrix retrieved from /kinect2/qhd/camera_info 
-        self.K = np.array([540.68603515625, 0.0, 479.75, 0.0, 540.68603515625, 269.75, 0.0, 0.0, 1.0]).reshape((3,3), order='C')
+        # self.K = np.array([540.68603515625, 0.0, 479.75, 0.0, 540.68603515625, 269.75, 0.0, 0.0, 1.0]).reshape((3,3), order='C')
         # self.canvas_pts = canvas_pts
         # self.canvas_pts_3D = np.zeros((len(self.canvas_pts), 3))
 
@@ -92,31 +81,6 @@ class ObjectInteraction:
             if not is_valid:
                 continue
 
-            # try:
-            # edge_pts = zip(pre_detected_object_dict[object_name], [*pre_detected_object_dict[object_name][1:], pre_detected_object_dict[object_name][0]])
-            # print(bounding_box)
-            # tl, bl, br, tr = np.array(bounding_box)
-            # center, right_c, top_c = (tl + br) // 2, (tr + br) // 2, (tl + tr) // 2 
-            # print(center)
-            # print(right_c)
-            # segments = [Segment(tuple(pts[0]), tuple(pts[1])) for pts in edge_pts]
-            # arb_x = [int(i) for i in list(Segment(tuple(center), tuple(right_c)).arbitrary_point(self.t).subs(self.t, t_val).evalf())]
-            # arb_y = [int(i) for i in list(Segment(tuple(center), tuple(top_c)).arbitrary_point(self.t).subs(self.t, t_val).evalf())]
-            # center = [int(i) for i in center]
-
-            # nan_flag = False
-            # pts_3d = []
-            # for dt in pc2.read_points(pointcloud, field_names={'x','y','z'}, skip_nans=False, uvs=[center, arb_x, arb_y]):
-            #     # check if it's not NaN
-            #     if dt[0] == dt[0]:
-            #         # print(f'x: {dt[0]}, y: {dt[1]}, z: {dt[2]}')
-            #         pts_3d.append(tuple(dt))
-            #     else:
-            #         nan_flag = True
-            #         break
-            
-            # if not nan_flag:
-                # self.point = Point3D(pts_3d[0])
             self.detected_object_plane[object_name] = Plane(points_3d[0].tolist(), points_3d[1].tolist())
             print(self.detected_object_plane)
             # except TypeError as e:
@@ -142,6 +106,21 @@ class ObjectInteraction:
         return [True, points_3d] if count is 2 else [False, None]
             
     def points_on_triangle(self, v, n):
+        '''
+        Generates uniformly distributed points on a given triangle.
+
+        Parameters
+        ----------
+        v : ndarray
+            [description]
+        n : int
+            [description]
+
+        Returns
+        -------
+        [type]
+            [description]
+        '''
         x = np.sort(np.random.rand(2, n), axis=0)
         return np.column_stack([x[0], x[1]-x[0], 1.0-x[1]]) @ v
 
@@ -150,12 +129,7 @@ class ObjectInteraction:
         for _, plane in self.detected_object_plane.items():
             # print(object_name)
             intersect_point = plane.intersection(Line3D(*self.arm_points_3D))[0].evalf()
-            # print(intersect_point[0].distance(self.point).evalf())
-        # try:
-            # left_arm_line_3D = Line3D(Point3D(*self.arm_points_3D[0, :]), Point3D(*self.arm_points_3D[1, :]))
-            # canvas_plane = Plane(Point3D(*self.canvas_pts_3D[0, :]), Point3D(*self.canvas_pts_3D[1, :]), Point3D(*self.canvas_pts_3D[2, :]))
-            # canvas_plane_point = canvas_plane.intersection(left_arm_line_3D)[0].evalf()
-            
+           
             self.msg.header.stamp = rospy.Time.now()
             self.msg.header.frame_id = 'kinect2_rgb_optical_frame'
             self.msg.pose.position.x = intersect_point.x
