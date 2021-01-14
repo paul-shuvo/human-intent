@@ -104,9 +104,11 @@ def shrink_bbox(bbox_cor, shrink_val: int=0.75) -> np.ndarray:
     upd_bbox_cor = np.zeros((4,2))
     
     for i, cor in enumerate(bbox_cor):
-        upd_bbox_cor[i] = segment_arb_pts([center_cor.tolist(), 
-                                           cor.tolist()], 
-                                           sub_vals=[shrink_val])
+        # Generate 2 arbitrary points (required for the segment_arb_method) 
+        # on the segment: one at the center, onother for the shrink value.
+        # Take the 2nd element for update bbox coordiante. 
+        upd_bbox_cor[i] = segment_arb_pts([center_cor.tolist(), cor.tolist()], 
+                                          n_pts=2, sub_val_range=[0, shrink_val])[1]
     
     return upd_bbox_cor
     

@@ -1,0 +1,4 @@
+canvas_box: [[600, 300], [600, 400], [800, 400], [800, 300]]
+canvas_interaction:
+  compute_canvas_once: True
+  sub_val_range: [0.3, 0.8]

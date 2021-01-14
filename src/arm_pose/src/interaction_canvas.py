@@ -13,9 +13,10 @@ from sympy import Point3D, Plane
 from sympy.geometry import Line3D
 from utils import segment_arb_pts, points_on_triangle
 
+import yaml
 
 class CanvasInteraction:
-    def __init__(self, canvas_box):  
+    def __init__(self, config):  
         """
         Initializes the class and starts the subscribers.
 
@@ -24,14 +25,15 @@ class CanvasInteraction:
         """
         # self.K is the camera matrix retrieved from /kinect2/qhd/camera_info 
         self.K = np.array([540.68603515625, 0.0, 479.75, 0.0, 540.68603515625, 269.75, 0.0, 0.0, 1.0]).reshape((3,3), order='C')
-        self.canvas_box = canvas_box
+        self.config = config
+        self.canvas_box = self.config['canvas_box']
         self.canvas_pts_3D = np.zeros((3, 3))
         self.arm_points = np.zeros((2, 2), dtype=np.int16).tolist()
         self.arm_points_3D = np.zeros((2, 3))
         self.left_arm_line_3D = None
         self.canvas_plane = None
         self.canvas_plane_point = None
-        self.compute_canvas_once = False
+        self.compute_canvas_once = self.config['canvas_interaction']['compute_canvas_once']
         self.arm_pose= PoseStamped()
 
         
@@ -123,7 +125,7 @@ class CanvasInteraction:
     def points_3d_on_plane(self, bounding_box, pointcloud, n_points=10):
         
         bounding_box = np.array(bounding_box)
-        points = np.vstack((self.points_on_triangle(bounding_box[:3], n_points),self.points_on_triangle(bounding_box[1:], n_points))).astype(int).tolist()
+        points = np.vstack((points_on_triangle(bounding_box[:3], n_points), points_on_triangle(bounding_box[1:], n_points))).astype(int).tolist()
         # points = self.canvas_box
         print(f'Points are:\n{points}')
         # count = 0
@@ -140,41 +142,12 @@ class CanvasInteraction:
         self.canvas_plane = Plane(Point3D(*self.canvas_pts_3D[0, :]), Point3D(*self.canvas_pts_3D[1, :]), Point3D(*self.canvas_pts_3D[2, :]))
 
         # return [True, points_3d] if count is 2 else [False, None]
-            
-    def points_on_triangle(self, v, n):
-        '''
-        Generates uniformly distributed points on a given triangle.
-
-        Parameters
-        ----------
-        v : ndarray
-            [description]
-        n : int
-            [description]
-
-        Returns
-        -------
-        [type]
-            [description]
-        '''
-        x = np.sort(np.random.rand(2, n), axis=0)
-        return np.column_stack([x[0], x[1]-x[0], 1.0-x[1]]) @ v
-
-
-
-def read_depth(width, height, data) :
-    # read function
-    if (height >= data.height) or (width >= data.width) :
-        return -1
-    data_out = pc2.read_points(data, field_names=None, skip_nans=False, uvs=[[width, height]])
-    int_data = next(data_out)
-    rospy.loginfo("int_data " + str(int_data))
-    return int_data
-
-
+   
 if __name__ == '__main__':
+    with open('config.yml', 'r') as stream:
+        config = yaml.safe_load(stream)
     canvas_pts=np.array([[600, 300], [600, 400], [800, 400], [800, 300]], dtype=np.int32)
-    CanvasInteraction(canvas_box=canvas_pts)
+    CanvasInteraction(config=config)
     # try:
     #     listen()
     # except rospy.ROSInterruptException as error:
