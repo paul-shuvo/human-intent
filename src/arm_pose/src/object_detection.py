@@ -72,7 +72,7 @@ class ObjectDetection():
         self.obj_boundary_msg = json.dumps(self.obj_boundary_info)
         self.obj_boundary_pub.publish(self.obj_boundary_msg)
 
-    def detect(self, object_name, query_im, kinect_im, show_image=False):
+    def detect(self, object_name, query_im, kinect_im, show_image=True):
         # minimum matching points needed to consider a match
         MIN_MATCH_COUNT = 10
         

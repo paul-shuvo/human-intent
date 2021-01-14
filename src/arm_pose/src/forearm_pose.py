@@ -368,7 +368,7 @@ class ForearmPosePublish():
 
 
         rospy.init_node('forearm_pose', anonymous=False)
-        self.pub = rospy.Publisher('forearm_pose', Floats, queue_size=10)
+        self.pub = rospy.Publisher('/forearm_pose', Floats, queue_size=10)
 
         r = rospy.Rate(self.frame_rate) # 10Hz
 

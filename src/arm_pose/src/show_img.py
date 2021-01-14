@@ -72,7 +72,9 @@ class ShowImage(object):
         self.camera_model = PinholeCameraModel()
         self.camera_model.fromCameraInfo(camera_info)
 
-        self.selected_point_sub = message_filters.Subscriber('/object_selected', PoseStamped)
+        # self.selected_point_sub = message_filters.Subscriber('/object_selected', PoseStamped)
+        self.selected_point_sub = message_filters.Subscriber('/point_on_canvas', PoseStamped)
+
         # self.camera_info_sub = message_filters.Subscriber('/kinect2/qhd/camera_info', CameraInfo)
 
         ts = message_filters.ApproximateTimeSynchronizer([self.forearm_pose_sub, self.image_sub, self.selected_point_sub], 10, 1, allow_headerless=True) # Changed code
@@ -84,6 +86,7 @@ class ShowImage(object):
         rospy.spin()
 
     def callback(self, arm_loc, image, selected_point_sub):
+        canvas_pts=np.array([[600, 300], [600, 400], [800, 400], [800, 300]], dtype=np.int32)
         # if selected_point_sub is not None:
         # self.camera_model.fromCameraInfo(camera_info)
         position = selected_point_sub.pose.position
@@ -96,17 +99,19 @@ class ShowImage(object):
         self.arm_points = arm_loc_np.reshape((arm_loc_np.shape[0]//2, -1), order='C')
         frame = cv2.line(frame, tuple(self.arm_points[0]), tuple(self.arm_points[2]), line_color[2], 2)
         frame = cv2.line(frame, tuple(self.arm_points[1]), tuple(self.arm_points[3]), line_color[2], 2)
-        frame = cv2.circle(frame, (int(self.point[0]), int(self.point[1])), radius=5, color=(0, 0, 255), thickness=2)
+        frame = cv2.circle(frame, (int(self.point[0]), int(self.point[1])), radius=15, color=(0, 0, 255), thickness=5)
+        frame = cv2.polylines(frame, [canvas_pts],  isClosed=True, color=(255, 0, 0), thickness=2) 
+        cv2.putText(frame,"canvas plane", (600, 280), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (155, 100, 80), 1)
 
         cv2.imshow('image', frame)
         cv2.waitKey(30)
         
 
 
-def main():
-    """ main function
-    """
-    node = ShowImage()
+# def main():
+#     """ main function
+#     """
+#     node = ShowImage()
 
 if __name__ == '__main__':
 

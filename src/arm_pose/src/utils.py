@@ -3,22 +3,18 @@ from sympy.geometry import Segment
 from sympy import symbols
 
 def segment_arb_pts(seg, 
-                    n_pts: int=1, 
-                    sub_vals: list=[0.75], 
-                    generate: bool=False,
-                    is_rand: bool=False) -> np.ndarray:
+                    n_pts: int=10, 
+                    is_rand: bool=False,
+                    sub_val_range: list=[0, 1]) -> np.ndarray:
     
     """Generates arbitrary point(s) on a geometric segment 
 
     Parameters
     ----------
-    seg : Segment, or list, or np.ndarray 
+    seg : Segment | list | np.ndarray 
         A geometric segment or an array containing the coordinates of the segment. 
     n_pts : int, optional
         Number of arbitrary points to be generated, by default 1
-    sub_vals : list, optional
-        A list containing values to be substituted in order
-        to generate arbotrary values, by default [0.75]
     generate : bool, optional
         If `True` it will generate `n_pts` number of arbirary
         points, else will take the `sub_vals` to generate
@@ -27,6 +23,9 @@ def segment_arb_pts(seg,
         If `True` it will generate random values, else will generate
         evenly spaced number(s) over the interval [0,1], 
         by default False
+    sub_val_range : list, optional
+        A list of length 2 containing the range within which the 
+        values to be substituted will be generated, by default [0, 1]
 
     Returns
     -------
@@ -51,14 +50,15 @@ def segment_arb_pts(seg,
         else:
             raise TypeError(f'seg is of type: {type(seg)}, but it needs to be either type Segment, np.ndarray, or list')
     
-    if generate:
-        assert n_pts >= 1, 'Number of substitute values should be more than 0'
-        # Either generate random values or evenly spaced number(s)
-        # over the interval [0,1]
-        if is_rand:
-            sub_vals = np.random.rand(n_pts)
-        else:
-            sub_vals = np.linspace(0.0, 1.0, num=n_pts)
+
+    assert n_pts >= 1, 'Number of substitute values should be more than 0'
+    # Either generate random values or evenly spaced number(s)
+    # over the interval [0,1]
+    low, high = sub_val_range
+    if is_rand:
+        sub_vals = np.random.uniform(low=low, high=high, size=(n_pts))
+    else:
+        sub_vals = np.linspace(start=low, stop=high, num=n_pts)
                                 
     t = symbols('t')
     arb_pts = []
@@ -74,7 +74,7 @@ def shrink_bbox(bbox_cor, shrink_val: int=0.75) -> np.ndarray:
 
     Parameters
     ----------
-    bbox_cor : list, or np.ndarray
+    bbox_cor : list | np.ndarray
         Coordinates of the bounding box.
     shrink_val : int, optional
         Shrinking ratio of the bbox, by default 0.75
