@@ -28,7 +28,7 @@ class ObjectDetection():
         # print(self.object_path)
         image_files = [join(self.object_path, f) for f in listdir(self.object_path) if f.endswith(('.jpg', '.png'))]
         self.query_object_im = {}
-        # TODO: finish teh else logic
+        # TODO: finish the else logic
         if objects is 'all':
             for im_file in image_files:
                 object_name = im_file.split('/')[-1].split('.')[0]

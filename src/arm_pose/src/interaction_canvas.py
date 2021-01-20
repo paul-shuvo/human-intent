@@ -13,18 +13,21 @@ from sympy import Point3D, Plane
 from sympy.geometry import Line3D
 from utils import segment_arb_pts, points_on_triangle
 
+from os.path import dirname, abspath
+from os import chdir
 import yaml
 
+dir_path = dirname(abspath(__file__))
+chdir(dir_path)
+
 class CanvasInteraction:
-    def __init__(self, config):  
+    def __init__(self, config, topics):  
         """
         Initializes the class and starts the subscribers.
 
         Args:
             canvas_pts (`ndarray`): Three pixel locations (co-planar in 3D space) on an image that describe a surface.
         """
-        # self.K is the camera matrix retrieved from /kinect2/qhd/camera_info 
-        self.K = np.array([540.68603515625, 0.0, 479.75, 0.0, 540.68603515625, 269.75, 0.0, 0.0, 1.0]).reshape((3,3), order='C')
         self.config = config
         self.canvas_box = self.config['canvas_box']
         self.canvas_pts_3D = np.zeros((3, 3))
@@ -37,16 +40,17 @@ class CanvasInteraction:
         self.arm_pose= PoseStamped()
 
         
-        rospy.init_node('projection_node', anonymous=False)
+        rospy.init_node('canvas_interaction_node', anonymous=False)
         self.pub = rospy.Publisher('/point_on_canvas', PoseStamped, queue_size=10)
         self.msg = PoseStamped()
         self.frame_id = 'kinect2_rgb_optical_frame'
         # forearm_pose_sub = message_filters.Subscriber('/kinect2/qhd/camera_info', CameraInfo)
         # self.forearm_pose_pub = rospy.Publisher('/forearm_pose_2', PoseStamped, queue_size=10)
-
-        forearm_pose_sub = message_filters.Subscriber('/forearm_pose', Floats)
-        pointcloud_sub = message_filters.Subscriber('/kinect2/qhd/points', PointCloud2)      
-        ts = message_filters.ApproximateTimeSynchronizer([forearm_pose_sub, pointcloud_sub], 10, 1, allow_headerless=True) # Changed code
+        subscribers = [message_filters.Subscriber(topic['topic_name'], topic['data_type']) 
+                     for id, topic in topics.items()]
+        # forearm_pose_sub = message_filters.Subscriber('/forearm_pose', Floats)
+        # pointcloud_sub = message_filters.Subscriber('/kinect2/qhd/points', PointCloud2)      
+        ts = message_filters.ApproximateTimeSynchronizer(subscribers, 10, 1, allow_headerless=True) # Changed code
         ts.registerCallback(self.callback)
         # spin
         rospy.spin()
@@ -63,7 +67,8 @@ class CanvasInteraction:
             arm_joint_pts = [2, 0] # 2 is LElbow, 0 is LWrist
         # right_arm_joint_pts = [0, 2]
         self.arm_points = arm_loc_np.reshape((arm_loc_np.shape[0]//2, -1), order='C')[arm_joint_pts]
-        arb_arm_points = segment_arb_pts(self.arm_points, n_pts=10)
+        arb_arm_points = segment_arb_pts(self.arm_points, n_pts=10, 
+                                         sub_val_range=self.config['canvas_interaction']['sub_val_range'])
 
         pre_arm_points_3D = self.arm_points_3D
         for pt_count, dt in enumerate(pc2.read_points(pointcloud, field_names={'x','y','z'}, skip_nans=True, uvs=arb_arm_points.astype(int).tolist()[5:10])):
@@ -88,10 +93,10 @@ class CanvasInteraction:
     def callback(self, forearm_pose, pointcloud):
         
         if self.compute_canvas_once:
-            self.points_3d_on_plane(self.canvas_box, pointcloud)
+            self.get_3d_points_on_plane(self.canvas_box, pointcloud)
             self.compute_canvas_once = False
         else:
-            self.points_3d_on_plane(self.canvas_box, pointcloud)
+            self.get_3d_points_on_plane(self.canvas_box, pointcloud)
         print(f'Plane is {self.canvas_plane}')
         self.update_points_arm_3d(forearm_pose, pointcloud)
         # self.pose_from_vector3D(self.arm_points_3D[0], self.arm_points_3D[1] - self.arm_points_3D[0])
@@ -122,7 +127,7 @@ class CanvasInteraction:
         self.pub.publish(self.msg)
         print('msg published')
 
-    def points_3d_on_plane(self, bounding_box, pointcloud, n_points=10):
+    def get_3d_points_on_plane(self, bounding_box, pointcloud, n_points=10):
         
         bounding_box = np.array(bounding_box)
         points = np.vstack((points_on_triangle(bounding_box[:3], n_points), points_on_triangle(bounding_box[1:], n_points))).astype(int).tolist()
@@ -146,8 +151,21 @@ class CanvasInteraction:
 if __name__ == '__main__':
     with open('config.yml', 'r') as stream:
         config = yaml.safe_load(stream)
-    canvas_pts=np.array([[600, 300], [600, 400], [800, 400], [800, 300]], dtype=np.int32)
-    CanvasInteraction(config=config)
+    # canvas_pts=np.array([[600, 300], [600, 400], [800, 400], [800, 300]], dtype=np.int32)
+    topics = {
+        0: {
+            'topic_name': '/forearm_pose',
+            'data_type': Floats
+        },
+        1: {
+            'topic_name': '/kinect2/qhd/points',
+            'data_type': PointCloud2
+        }
+    }
+    CanvasInteraction(config=config, topics=topics)
+    
+        #     forearm_pose_sub = message_filters.Subscriber('/forearm_pose', Floats)
+        # pointcloud_sub = message_filters.Subscriber('/kinect2/qhd/points', PointCloud2)  
     # try:
     #     listen()
     # except rospy.ROSInterruptException as error:
