@@ -13,6 +13,8 @@ from geometry_msgs.msg import PoseStamped
 import cv2
 import os
 
+from utils import project3dToPixel
+
 l_pair = [
     (0, 1),
     (0, 2),
@@ -97,26 +99,27 @@ class ShowForearmPose:
             "/kinect2/qhd/image_color_rect", Image
         )
         self.forearm_pose_sub = message_filters.Subscriber("/forearm_pose", Floats)
-
+        self.selected_point_sub = message_filters.Subscriber(
+            "/object_selected", PoseStamped
+        )
         # if show_directed_point:
         # self.camera_model = PinholeCameraModel()
         # self.camera_model.fromCameraInfo(camera_info)
 
         ts = message_filters.ApproximateTimeSynchronizer(
-            [self.forearm_pose_sub, self.image_sub],
+            [self.forearm_pose_sub, self.image_sub, self.selected_point_sub],
             10,
             1,
             allow_headerless=True,
         )  # Changed code
         # else:
         #     ts = message_filters.ApproximateTimeSynchronizer([self.forearm_pose_sub, self.image_sub], 10, 1, allow_headerless=True)
-        print('Here')
 
         ts.registerCallback(self.callback)
         # spin
         rospy.spin()
 
-    def callback(self, arm_loc, image):
+    def callback(self, arm_loc, image, selected_point_sub):
         frame = np.frombuffer(image.data, dtype=np.uint8).reshape(
             image.height, image.width, -1
         )
@@ -161,7 +164,6 @@ class ShowForearmPose:
         cv2.waitKey(30)
 
 
-
 class ShowImage(object):
     """Get 3D values of bounding boxes returned by face_recognizer node.
 
@@ -173,7 +175,7 @@ class ShowImage(object):
 
     """
 
-    def __init__(self, show_directed_point):
+    def __init__(self):
         super(ShowImage, self).__init__()
         # self.K = np.array([540.68603515625, 0.0, 479.75, 0.0, 540.68603515625, 269.75, 0.0, 0.0, 1.0]).reshape((3,3), order='C')
 
@@ -182,7 +184,7 @@ class ShowImage(object):
         rospy.init_node("show_image_node", anonymous=False)
         camera_info_topic = "/kinect2/qhd/camera_info"
         camera_info = rospy.wait_for_message(camera_info_topic, CameraInfo)
-        print(camera_info)
+        # print(camera_info)
         self.image = np.zeros((546, 420, 3), dtype=np.uint8)
         self.point = (0, 0)
         # self.data = None
@@ -192,6 +194,7 @@ class ShowImage(object):
         self.cor_y = np.zeros(18)
         self.pred_score = np.zeros(18)
         self.part_line = {}
+        self.frame = None
 
         self.image_sub = message_filters.Subscriber(
             "/kinect2/qhd/image_color_rect", Image
@@ -204,8 +207,16 @@ class ShowImage(object):
 
         # self.selected_point_sub = message_filters.Subscriber('/object_selected', PoseStamped)
         self.selected_point_sub = message_filters.Subscriber(
-            "/point_on_canvas", PoseStamped
+            "/object_selected", PoseStamped
         )
+        
+        # if self.viz_pose:
+            # self.viz_frame = None
+            # camera_info = rospy.wait_for_message(
+            #         "/kinect2/qhd/camera_info",
+            #         CameraInfo
+            #     )
+        self.P = np.array(camera_info.P).reshape((3, 4))
 
         # self.camera_info_sub = message_filters.Subscriber('/kinect2/qhd/camera_info', CameraInfo)
 
@@ -223,19 +234,24 @@ class ShowImage(object):
         rospy.spin()
 
     def callback(self, arm_loc, image, selected_point_sub):
-        canvas_pts = np.array(
-            [[600, 300], [600, 400], [800, 400], [800, 300]], dtype=np.int32
-        )
+        print('here')
+        # canvas_pts = np.array(
+        #     [[600, 300], [600, 400], [800, 400], [800, 300]], dtype=np.int32
+        # )
         # if selected_point_sub is not None:
         # self.camera_model.fromCameraInfo(camera_info)
         position = selected_point_sub.pose.position
         point_3d = [position.x, position.y, position.z]
-        self.point = self.camera_model.project3dToPixel(point_3d)
+        # self.point = self.camera_model.project3dToPixel(point_3d)
+        self.point = project3dToPixel(self.P, point_3d)
         print(self.point)
 
         frame = np.frombuffer(image.data, dtype=np.uint8).reshape(
             image.height, image.width, -1
         )
+        
+        if self.frame is None:
+            self.frame = frame
         arm_loc_np = np.asarray(arm_loc.data, dtype=np.int16)
         self.arm_points = arm_loc_np.reshape((arm_loc_np.shape[0] // 2, -1), order="C")
         frame = cv2.line(
@@ -259,20 +275,21 @@ class ShowImage(object):
             color=(0, 0, 255),
             thickness=5,
         )
-        frame = cv2.polylines(
-            frame, [canvas_pts], isClosed=True, color=(255, 0, 0), thickness=2
-        )
-        cv2.putText(
-            frame,
-            "canvas plane",
-            (600, 280),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            (155, 100, 80),
-            1,
-        )
-
-        cv2.imshow("image", frame)
+        # frame = cv2.polylines(
+        #     frame, [canvas_pts], isClosed=True, color=(255, 0, 0), thickness=2
+        # )
+        # cv2.putText(
+        #     frame,
+        #     "canvas plane",
+        #     (600, 280),
+        #     cv2.FONT_HERSHEY_SIMPLEX,
+        #     0.5,
+        #     (155, 100, 80),
+        #     1,
+        # )
+        self.frame = frame
+        print('here 2')
+        cv2.imshow("image", self.frame)
         cv2.waitKey(30)
 
 
@@ -284,8 +301,8 @@ class ShowImage(object):
 if __name__ == "__main__":
 
     # print(camera_info)
-    # ShowImage(show_directed_point=False)
-    ShowForearmPose()
+    ShowImage()
+    # ShowForearmPose()
 
 # -------------------------
 # old code

@@ -3,6 +3,32 @@ from sympy.geometry import Segment
 from sympy import symbols
 
 
+def project3dToPixel(P, point):
+        """
+        Find the 3D point projected to image plane
+
+        Parameters
+        ----------
+        point : numpy.ndarrya | tuple | list
+            The 3D point.
+        Returns
+        -------
+        numpy.ndarray | None
+            The pixel location corresponding to the
+            3D vector. Returns None if w is 0.
+        """
+        src = np.array([point[0], point[1], point[2], 1.0]).reshape(4, 1)
+        dst = P @ src
+        x = dst[0, 0]
+        y = dst[1, 0]
+        w = dst[2, 0]
+        if w != 0:
+            px = int(x/w)
+            py = int(y/w)
+            return np.array([px, py], dtype=np.int32)
+        else:
+            return None
+
 def segment_arb_pts(
     seg, n_pts: int = 10, is_rand: bool = False, sub_val_range: list = [0, 1]
 ) -> np.ndarray:
