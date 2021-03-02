@@ -11,7 +11,7 @@ import message_filters
 from std_msgs.msg import String
 import sensor_msgs.point_cloud2 as pc2
 from sensor_msgs.msg import Image, PointCloud2, CameraInfo
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Pose, PoseArray
 
 # from sympy import Point3D, Plane, symbols, N
 # from sympy.geometry import Line3D, Segment, Ray3D
@@ -38,13 +38,21 @@ class ObjectInteraction:
         self.detected_object_plane = {}
         # self.t = symbols("t")
         self.compute_once = [True, True]
+        # self.compute_once = [False, False]
         self.regress_plane = True
 
         rospy.init_node("object_selection_node", anonymous=False)
-        self.pub = rospy.Publisher("/object_selected", PoseStamped, queue_size=10)
-        self.msg = PoseStamped()
+        # self.pub = rospy.Publisher("/object_selected", PoseStamped, queue_size=10)
+        # self.msg = PoseStamped()
+
+        self.pose_array_pub = rospy.Publisher('/object_pose_array',
+                                              PoseArray, queue_size=10)
+        self.pose_array = PoseArray()
+
         self.frame_id = "kinect2_rgb_optical_frame"
         self.point = Point3D(np.zeros((1, 3)))
+
+        self.counter = 0
         # forearm_pose_sub = message_filters.Subscriber('/kinect2/qhd/camera_info', CameraInfo)
         forearm_pose_sub = message_filters.Subscriber("/forearm_pose", Floats)
         pointcloud_sub = message_filters.Subscriber("/kinect2/qhd/points", PointCloud2)
@@ -72,40 +80,62 @@ class ObjectInteraction:
 
         # if self.compute_once:
         #     self.compute_once = False
+        self.pose_array.header.frame_id = self.frame_id
+        pose_msg_arr = []
         for _, plane in self.detected_object_plane.items():
             # print(object_name)
             intersect_point = plane.intersection(Line3D(self.arm_points_3D))
             # print(intersect_point)
-
-            self.msg.header.stamp = rospy.Time.now()
-            self.msg.header.frame_id = self.frame_id
-            self.msg.pose.position.x = intersect_point[0,0,0]
-            self.msg.pose.position.y = intersect_point[0,0,1]
-            self.msg.pose.position.z = intersect_point[0,0,2]
+            pose_msg = Pose()
+            # pose_msg.header.stamp = rospy.Time.now()
+            # pose_msg.header.frame_id = self.frame_id
+            pose_msg.position.x = intersect_point[0,0,0]
+            pose_msg.position.y = intersect_point[0,0,1]
+            pose_msg.position.z = intersect_point[0,0,2]
             # Make sure the quaternion is valid and normalized
-            self.msg.pose.orientation.x = 0.0
-            self.msg.pose.orientation.y = 0.0
-            self.msg.pose.orientation.z = 0.0
-            self.msg.pose.orientation.w = 1.0
+            pose_msg.orientation.x = 0.0
+            pose_msg.orientation.y = 0.0
+            pose_msg.orientation.z = 0.0
+            pose_msg.orientation.w = 1.0
+
+            pose_msg_arr.append(pose_msg)
             # self.frame_id += 1
             # print(canvas_plane_point)
             # print(canvas_plane_point.y)
         # except ValueError as error:
         #     rospy.loginfo(error)
+        self.pose_array.poses = pose_msg_arr
+        self.pose_array.header.stamp = rospy.Time.now()
 
-        self.pub.publish(self.msg)
+        self.pose_array_pub.publish(self.pose_array)
+        # self.pub.publish(self.msg)
         # print(self.msg)
-        print('msg published')
+        print(f'updated: {self.counter}')
+        self.counter += 1
+        
 
     def update_arm_points(self, forearm_pose, pointcloud):
         # choose left arm for now
         arm_loc_np = np.asarray(forearm_pose.data, dtype=np.int16)
         left_arm_joint_pts = [0, 2]
         right_arm_joint_pts = [1, 3]
+        
         self.arm_points = arm_loc_np.reshape((arm_loc_np.shape[0] // 2, -1), order="C")[
             left_arm_joint_pts
         ].tolist()
 
+        # self.arm_points = arm_loc_np.reshape((arm_loc_np.shape[0] // 2, -1), order="C")[
+        #     left_arm_joint_pts
+        # ]
+        
+        # print(self.arm_points)
+        # diff = (self.arm_points[1] - self.arm_points[0])/10
+        # self.arm_points[1] = self.arm_points[0] + diff * 7
+        # self.arm_points[0] = self.arm_points[0] + diff * 3
+
+        # print(self.arm_points)
+        # self.arm_points = self.arm_points.astype(int).tolist()
+        
         pre_arm_points_3D = self.arm_points_3D
         count = 0
         for dt in pc2.read_points(

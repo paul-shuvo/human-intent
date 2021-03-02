@@ -63,6 +63,7 @@ class CanvasInteraction:
         # spin
         rospy.spin()
 
+
     def pose_from_vector3D(self, position, waypoint):
         # http://lolengine.net/blog/2013/09/18/beautiful-maths-quaternion-from-vectors
         pass

@@ -1,3 +1,2 @@
-1. object detection script -> options: imshow, publish 2D points
-2. project ray on a wall
-3. find what are the objects that are pointed at
+1. Find which hand is pointing
+2. Visualizations won't work if pose array is passed.

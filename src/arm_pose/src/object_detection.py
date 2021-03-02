@@ -55,13 +55,14 @@ class ObjectDetection():
         while not rospy.is_shutdown():
             rospy.Subscriber("/kinect2/qhd/image_color_rect", Image, self.callback)
             r.sleep()
-    
+
     def callback(self, kinect_image):
         image = np.frombuffer(kinect_image.data, dtype=np.uint8).reshape(kinect_image.height, kinect_image.width, -1)
         if image is None:
             rospy.loginfo('invalid image received')
             return
-        
+
+
         time_elapsed = time.time() - self.prev
         if time_elapsed > 1. / self.frame_rate:
             self.prev = time.time()
@@ -75,7 +76,7 @@ class ObjectDetection():
     def detect(self, object_name, query_im, kinect_im, show_image=True):
         # minimum matching points needed to consider a match
         MIN_MATCH_COUNT = 10
-        
+
         # img1 = cv.imread('box.png',0)          # queryImage
         # img2 = cv.imread('box_in_scene.png',0) # trainImage
 
@@ -116,7 +117,7 @@ class ObjectDetection():
             rospy.loginfo( "Not enough matches are found - {}/{}".
                 format(len(good), MIN_MATCH_COUNT) )
             matchesMask = None
-        
+
 
 if __name__ == "__main__":
     ObjectDetection()

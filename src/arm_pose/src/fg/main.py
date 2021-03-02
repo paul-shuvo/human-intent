@@ -154,6 +154,7 @@ pred = reg.predict(comb)[0]
 err = np.sum(np.abs(pred-n))/n.shape[0]
 
 print(f'pred is: {pred} \noriginal is: {n[0]}\ndiff is: {pred-n[0]}')
+
 s = 1
 # print(pp())
 

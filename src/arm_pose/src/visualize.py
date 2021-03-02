@@ -99,15 +99,15 @@ class ShowForearmPose:
             "/kinect2/qhd/image_color_rect", Image
         )
         self.forearm_pose_sub = message_filters.Subscriber("/forearm_pose", Floats)
-        self.selected_point_sub = message_filters.Subscriber(
-            "/object_selected", PoseStamped
-        )
+        # self.selected_point_sub = message_filters.Subscriber(
+        #     "/object_selected", PoseStamped
+        # )
         # if show_directed_point:
         # self.camera_model = PinholeCameraModel()
         # self.camera_model.fromCameraInfo(camera_info)
 
         ts = message_filters.ApproximateTimeSynchronizer(
-            [self.forearm_pose_sub, self.image_sub, self.selected_point_sub],
+            [self.forearm_pose_sub, self.image_sub],
             10,
             1,
             allow_headerless=True,
@@ -119,7 +119,7 @@ class ShowForearmPose:
         # spin
         rospy.spin()
 
-    def callback(self, arm_loc, image, selected_point_sub):
+    def callback(self, arm_loc, image):
         frame = np.frombuffer(image.data, dtype=np.uint8).reshape(
             image.height, image.width, -1
         )
@@ -202,8 +202,8 @@ class ShowImage(object):
         self.forearm_pose_sub = message_filters.Subscriber("/forearm_pose", Floats)
 
         # if show_directed_point:
-        self.camera_model = PinholeCameraModel()
-        self.camera_model.fromCameraInfo(camera_info)
+        # self.camera_model = PinholeCameraModel()
+        # self.camera_model.fromCameraInfo(camera_info)
 
         # self.selected_point_sub = message_filters.Subscriber('/object_selected', PoseStamped)
         self.selected_point_sub = message_filters.Subscriber(
@@ -303,49 +303,3 @@ if __name__ == "__main__":
     # print(camera_info)
     ShowImage()
     # ShowForearmPose()
-
-# -------------------------
-# old code
-# -------------------------
-
-# def callback(self, loc, image):
-#     frame = np.frombuffer(image.data, dtype=np.uint8).reshape(image.height, image.width, -1)
-
-#     self.image = frame
-#     np_data = np.array(loc.data)
-
-#     if self.cor_x.all() == np_data[0:18].all():
-#         print('same')
-#     else:
-#         self.cor_x, self.cor_y, self.pred_score = np_data[0:18], np_data[18:36], np_data[36:54]
-
-#     # part_line = {}
-#     height, width = frame.shape[:2]
-#     # img = cv2.resize(frame,(int(width/2), int(height/2)))
-
-#     for n in range(self.pred_score.shape[0]):
-#         # print(f'pred score for {n} is: {self.pred_score[n]}')
-#         if self.pred_score[n] <= 0.05:
-#             continue
-#         # cor_x, cor_y = int(kp_preds[n, 0]), int(kp_preds[n, 1])
-#         # part_line[n] = (int(cor_x[n]/2), int(cor_y[n]/2))
-#         self.part_line[n] = (int(self.cor_x[n]), int(self.cor_y[n]))
-#         # print(part_line[n])
-#         # bg = img.copy()
-#         # cv2.circle(bg, (int(cor_x[n]/2), int(cor_y[n]/2)), 5, p_color[n], -1)
-#         cv2.circle(self.image, (int(self.cor_x[n]), int(self.cor_y[n])), 5, p_color[n], -1)
-
-#         # Now create a mask of logo and create its inverse mask also
-#         transparency = float(max(0, min(1, self.pred_score[n])))
-#         # self.image = cv2.addWeighted(bg, transparency, img, 1-transparency, 0)
-#         # self.image = bg
-#     try:
-#         self.image = cv2.line(self.image, self.part_line[l_pair[6][0]], self.part_line[l_pair[6][1]], line_color[2], 2)
-#         self.image = cv2.line(self.image, self.part_line[l_pair[8][0]], self.part_line[l_pair[8][1]], line_color[4], 2)
-#         print(self.part_line[6])
-#         print(f'length is: {len(self.part_line)}')
-#     except KeyError:
-#         print("Key Error")
-#     print(self.count)
-#     cv2.imshow('image', self.image)
-#     cv2.waitKey(30)
