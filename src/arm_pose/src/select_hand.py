@@ -10,6 +10,7 @@ import sensor_msgs.point_cloud2 as pc2
 import cv2
 
 # TODO: Add docs to the pointing hand measure
+# TODO: Check if it works better with x and y gradiants
 
 class PointingHands:
     def __init__(self):
