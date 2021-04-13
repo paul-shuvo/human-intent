@@ -47,7 +47,7 @@ class CanvasInteraction:
         rospy.init_node("canvas_interaction_node", anonymous=False)
         self.pub = rospy.Publisher("/point_on_canvas", PoseStamped, queue_size=10)
         self.msg = PoseStamped()
-        self.frame_id = "kinect2_rgb_optical_frame"
+        self.frame_id = "camera_rgb_optical_frame"
         # forearm_pose_sub = message_filters.Subscriber('/kinect2/qhd/camera_info', CameraInfo)
         # self.forearm_pose_pub = rospy.Publisher('/forearm_pose_2', PoseStamped, queue_size=10)
         subscribers = [
@@ -68,7 +68,7 @@ class CanvasInteraction:
         # http://lolengine.net/blog/2013/09/18/beautiful-maths-quaternion-from-vectors
         pass
 
-    def update_points_arm_3d(self, forearm_pose, pointcloud, arm="left"):
+    def update_points_arm_3d(self, forearm_pose, pointcloud, arm="right"):
         arm_loc_np = np.asarray(forearm_pose.data, dtype=np.int16)
         if arm is "right":
             arm_joint_pts = [3, 1]
@@ -138,7 +138,7 @@ class CanvasInteraction:
         ].evalf()
 
         self.msg.header.stamp = rospy.Time.now()
-        self.msg.header.frame_id = "kinect2_rgb_optical_frame"
+        self.msg.header.frame_id = "camera_rgb_optical_frame"
         self.msg.pose.position.x = self.canvas_plane_point.x
         self.msg.pose.position.y = self.canvas_plane_point.y
         self.msg.pose.position.z = self.canvas_plane_point.z
@@ -199,7 +199,7 @@ if __name__ == "__main__":
     # canvas_pts=np.array([[600, 300], [600, 400], [800, 400], [800, 300]], dtype=np.int32)
     topics = {
         0: {"topic_name": "/forearm_pose", "data_type": Floats},
-        1: {"topic_name": "/kinect2/qhd/points", "data_type": PointCloud2},
+        1: {"topic_name": "/camera/depth_registered/points", "data_type": PointCloud2},
     }
     CanvasInteraction(config=config, topics=topics)
 

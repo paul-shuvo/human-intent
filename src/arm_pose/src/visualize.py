@@ -72,6 +72,7 @@ line_color = [
     (255, 127, 77),
     (0, 77, 255),
     (255, 77, 36),
+    (0, 0, 255),
 ]
 
 # TODO: Pass the topic names in the __init__ method
@@ -82,7 +83,8 @@ class ShowForearmPose:
         # self.count = 0
         # init the node
         rospy.init_node("viusalize_forearm_node", anonymous=False)
-        camera_info_topic = "/kinect2/qhd/camera_info"
+        # camera_info_topic = "/kinect2/qhd/camera_info"
+        camera_info_topic = "/camera/rgb/camera_info"
         # camera_info = rospy.wait_for_message(camera_info_topic, CameraInfo)
         # print(camera_info)
         self.image = np.zeros((546, 420, 3), dtype=np.uint8)
@@ -96,7 +98,7 @@ class ShowForearmPose:
         self.part_line = {}
 
         self.image_sub = message_filters.Subscriber(
-            "/kinect2/qhd/image_color_rect", Image
+            "/camera/rgb/image_color", Image
         )
         self.forearm_pose_sub = message_filters.Subscriber("/forearm_pose", Floats)
         # self.selected_point_sub = message_filters.Subscriber(
@@ -130,15 +132,15 @@ class ShowForearmPose:
             frame,
             tuple(self.arm_points[0]),
             tuple(self.arm_points[2]),
-            line_color[2],
-            2,
+            line_color[15],
+            1,
         )
         frame = cv2.line(
             frame,
             tuple(self.arm_points[1]),
             tuple(self.arm_points[3]),
             line_color[2],
-            2,
+            1,
         )
         # frame = cv2.circle(
         #     frame,
@@ -164,7 +166,7 @@ class ShowForearmPose:
         cv2.waitKey(30)
 
 
-class ShowImage(object):
+class ShowSelectedObject(object):
     """Get 3D values of bounding boxes returned by face_recognizer node.
 
     _bridge (CvBridge): Bridge between ROS and CV image
@@ -301,5 +303,5 @@ class ShowImage(object):
 if __name__ == "__main__":
 
     # print(camera_info)
-    ShowImage()
-    # ShowForearmPose()
+    # ShowSelectedObject()
+    ShowForearmPose()

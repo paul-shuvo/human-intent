@@ -69,18 +69,18 @@ class VerbalInstruction:
                 rospy.loginfo("Speaker is quiet")
                 continue
             rospy.loginfo(self.instruction_msg)
-            self.get_object_info(self.instruction_msg)
+            self.extract_object_info(self.instruction_msg)
             self.verbal_instruction_pub.publish(self.instruction_msg)
             rate.sleep()
 
-    def get_object_info(self, instruction_msg):
+    def extract_object_info(self, instruction_msg):
         matcher.add("action", None, [{"POS": "VERB"},
                                      {"POS": "PRON", "OP": "*"},
                                      {},
                                      {"POS": "ADJ", "OP": "*"},
                                      {"POS": "NOUN"}])
 
-        matcher.add("attr", None, [{"POS": "ADJ"}])
+        matcher.add("attr", None, [{"POS": "ADJ", "OP": "+"}, {"POS": "NOUN"}])
         matcher.add("pos", None, [{"LEMMA": {"IN": ["right", "left", "front", "back"]}}])
 
         doc = nlp(instruction_msg)
@@ -114,4 +114,4 @@ class VerbalInstruction:
 
 
 if __name__ == "__main__":
-    VerbalInstruction(device_index=2)
+    VerbalInstruction(device_index=1)

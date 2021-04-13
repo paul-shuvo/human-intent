@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from sklearn.utils.validation import _num_samples
 import rospy
 from arm_pose.msg import Floats
 
@@ -36,10 +37,30 @@ class ObjectInteraction:
         self.arm_points = np.zeros((2, 2), dtype=np.int16).tolist()
         self.arm_points_3D = np.random.random_sample((2, 3))
         self.detected_object_plane = {}
+        self.object_center = {}
         # self.t = symbols("t")
-        self.compute_once = [True, True]
-        # self.compute_once = [False, False]
-        self.regress_plane = True
+        # self.compute_once = [True, True]
+        self.compute_once = [False, False]
+        self.regress_plane = False
+        
+        ####### Experiment Variable #######
+        self.detection_count = {
+            'cheeze-it': 0,
+            'book-2': 0,
+            'book-3': 0
+        }
+        self.detection_voting_count = {
+            'cheeze-it': 0,
+            'book-2': 0,
+            'book-3': 0
+        }
+        self.voting_interval = 0
+        self.detection_voting = {
+            'cheeze-it': 0,
+            'book-2': 0,
+            'book-3': 0
+        }
+        ####### Experiment Variable #######
 
         rospy.init_node("object_selection_node", anonymous=False)
         # self.pub = rospy.Publisher("/object_selected", PoseStamped, queue_size=10)
@@ -49,13 +70,13 @@ class ObjectInteraction:
                                               PoseArray, queue_size=10)
         self.pose_array = PoseArray()
 
-        self.frame_id = "kinect2_rgb_optical_frame"
+        self.frame_id = "camera_rgb_optical_frame"
         self.point = Point3D(np.zeros((1, 3)))
 
         self.counter = 0
         # forearm_pose_sub = message_filters.Subscriber('/kinect2/qhd/camera_info', CameraInfo)
         forearm_pose_sub = message_filters.Subscriber("/forearm_pose", Floats)
-        pointcloud_sub = message_filters.Subscriber("/kinect2/qhd/points", PointCloud2)
+        pointcloud_sub = message_filters.Subscriber("/camera/depth_registered/points", PointCloud2)
         detected_object_sub = message_filters.Subscriber("/detected_object", String)
 
         ts = message_filters.ApproximateTimeSynchronizer(
@@ -78,13 +99,14 @@ class ObjectInteraction:
         elif not self.compute_once[0] and not self.compute_once[1]:
             self.update_plane(pointcloud, detected_object)
 
-        # if self.compute_once:
-        #     self.compute_once = False
+        # print(self.object_center)
+        object_distance = {}
         self.pose_array.header.frame_id = self.frame_id
         pose_msg_arr = []
-        for _, plane in self.detected_object_plane.items():
+        for object_name, plane in self.detected_object_plane.items():
             # print(object_name)
             intersect_point = plane.intersection(Line3D(self.arm_points_3D))
+            object_distance[object_name] = np.linalg.norm(intersect_point[0, 0, :] - self.object_center[object_name])
             # print(intersect_point)
             pose_msg = Pose()
             # pose_msg.header.stamp = rospy.Time.now()
@@ -99,43 +121,46 @@ class ObjectInteraction:
             pose_msg.orientation.w = 1.0
 
             pose_msg_arr.append(pose_msg)
-            # self.frame_id += 1
-            # print(canvas_plane_point)
-            # print(canvas_plane_point.y)
-        # except ValueError as error:
-        #     rospy.loginfo(error)
+
         self.pose_array.poses = pose_msg_arr
         self.pose_array.header.stamp = rospy.Time.now()
 
         self.pose_array_pub.publish(self.pose_array)
         # self.pub.publish(self.msg)
         # print(self.msg)
-        print(f'updated: {self.counter}')
+        min_ = min(object_distance.items(), key=lambda x: x[1])
+        # self.detection_count[min_[0]] += 1
+        # self.detection_voting[min_[0]] += 1
+        # self.voting_interval += 1
+        # if self.voting_interval == 30:
+        #     max_ = max(self.detection_voting.items(), key=lambda x: x[1])
+        #     self.detection_voting_count[max_[0]] += 1
+        #     print('detection count: ', self.detection_count)
+        #     print('detection voting: ', self.detection_voting)
+        #     print('detection voting count: ', self.detection_voting_count)
+        #     print('--------------------------------------')
+        #     self.voting_interval = 0
+        #     self.detection_voting = {
+        #         'cheeze-it': 0,
+        #         'book-2': 0,
+        #         'book-3': 0
+        #     } 
+        # print(f'minimum is: {min_}')
+        print(min_[0])
+        # print(object_distance)
+        # print('--------------------------------------')
         self.counter += 1
-        
 
     def update_arm_points(self, forearm_pose, pointcloud):
         # choose left arm for now
         arm_loc_np = np.asarray(forearm_pose.data, dtype=np.int16)
         left_arm_joint_pts = [0, 2]
         right_arm_joint_pts = [1, 3]
-        
+
         self.arm_points = arm_loc_np.reshape((arm_loc_np.shape[0] // 2, -1), order="C")[
-            left_arm_joint_pts
+            right_arm_joint_pts
         ].tolist()
 
-        # self.arm_points = arm_loc_np.reshape((arm_loc_np.shape[0] // 2, -1), order="C")[
-        #     left_arm_joint_pts
-        # ]
-        
-        # print(self.arm_points)
-        # diff = (self.arm_points[1] - self.arm_points[0])/10
-        # self.arm_points[1] = self.arm_points[0] + diff * 7
-        # self.arm_points[0] = self.arm_points[0] + diff * 3
-
-        # print(self.arm_points)
-        # self.arm_points = self.arm_points.astype(int).tolist()
-        
         pre_arm_points_3D = self.arm_points_3D
         count = 0
         for dt in pc2.read_points(
@@ -161,22 +186,13 @@ class ObjectInteraction:
         # https://stackoverflow.com/questions/11174024/attributeerrorstr-object-has-no-attribute-read
 
     def update_plane(self, pointcloud, detected_object):
-        # if self.compute_once:
-        #     if self.regress_plane:
-        #         pass
-        #     else:
-        #         pass
-        # else:
-        #     if self.regress_plane:
-        #         pass
-        #     else:
-        #         pass
+
         if self.regress_plane:
             # if self.compute_once:
             for object_name, bounding_box in json.loads(detected_object.data).items():
-                if bounding_box == None:
+                if bounding_box is None:
                     continue
-                is_valid, points_3d = self.get_points_on_plane(bounding_box, pointcloud)
+                is_valid, points_3d = self.get_points_on_plane(object_name, bounding_box, pointcloud)
                 # print(is_valid)
                 if not is_valid:
                     continue
@@ -191,7 +207,7 @@ class ObjectInteraction:
 
                 self.detected_object_plane[object_name] = Plane(p, n=reg.predict(p.reshape((1, -1))))
             # self.compute_once = False
-            print('computing')
+            # print('computing')
             # else:
             #     for object_name, bounding_box in json.loads(detected_object.data).items():
             #         if bounding_box == None:
@@ -213,7 +229,7 @@ class ObjectInteraction:
             #     print('computing')
         else:
             for object_name, bounding_box in json.loads(detected_object.data).items():
-                is_valid, points_3d = self.get_points_on_plane(bounding_box, pointcloud)
+                is_valid, points_3d = self.get_points_on_plane(object_name, bounding_box, pointcloud)
                 if is_valid:
                     self.detected_object_plane[object_name] = Plane(points_3d)
             # self.compute_once = False
@@ -229,24 +245,33 @@ class ObjectInteraction:
     def best_fit(reg, X, y):
         pass
 
-    def get_points_on_plane(self, bounding_box, pointcloud):
+    def get_points_on_plane(self, object_name, bounding_box, pointcloud):
+        if bounding_box is None:
+            return False, False
+        # print(bounding_box)
         n_points = 30
         bounding_box = np.array(bounding_box)
         points = (
             np.vstack(
                 (
-                    self.points_on_triangle(bounding_box[:3], n_points),
-                    self.points_on_triangle(bounding_box[1:], n_points),
+                    self.points_within_triangle(bounding_box[:3], n_points),
+                    self.points_within_triangle(bounding_box[1:], n_points),
                 )
             )
             .astype(int)
             .tolist()
         )
 
-        # import pickle
-        # with open('plane.pkl', 'wb') as f:
-        #     pickle.dump(pt_list, f)
-        
+        #######################################
+        # new code, need to be tested
+        sampled_points = self.points_within_circle(bounding_box)
+        for dt in pc2.read_points(
+                pointcloud, field_names={"x", "y", "z"}, skip_nans=True, uvs=sampled_points
+            ):
+            self.object_center[object_name] = dt
+            break
+        #######################################
+
         if self.regress_plane:
             pt_list = []
             for dt in pc2.read_points(
@@ -271,7 +296,7 @@ class ObjectInteraction:
 
             return [True, points_3d] if count is 3 else [False, None]
 
-    def points_on_triangle(self, v, n):
+    def points_within_triangle(self, v, n):
         """
         Generates uniformly distributed points on a given triangle.
 
@@ -290,7 +315,26 @@ class ObjectInteraction:
         x = np.sort(np.random.rand(2, n), axis=0)
         return np.column_stack([x[0], x[1] - x[0], 1.0 - x[1]]) @ v
 
- 
+    def points_within_circle(self, bounding_box):
+        _num_samples = 20
+        # radius of the circle
+        circle_r = 10
+        # center of the circle (x, y)
+        # box = np.random.random((4,2)) * 50
+        center = (bounding_box[0] + bounding_box[3]) / 2
+        # center = np.array([20,10])
+
+        # random angle
+        alpha = 2 * np.pi * np.random.random((_num_samples, 1))
+        # random radius
+        r = circle_r * np.sqrt(np.random.random())
+        # calculating coordinates
+        x = r * np.cos(alpha) + center[0]
+        y = r * np.sin(alpha) + center[1]
+        x[0] = center[0]
+        y[0] = center[1]
+        return np.hstack((x, y)).astype(np.int32).tolist()
+        # print("Random point", np.hstack((x, y)))
 
 def read_depth(width, height, data):
     # read function
