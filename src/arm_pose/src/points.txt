@@ -1,0 +1,24 @@
+so as the depth data was extremely noisy, and wasn't adding anything to the project,
+ I decided to remove that part from the paper for the time being. 
+
+Without reliable depth information, there is not a lot to add to the paper,
+because the work kind of was mostly depending on that information.
+
+I think later, I would need to calibrate the camera to at least try and see if I can get 
+more reliable depth information.
+
+So, i've only used the rgb image to estimate pointing gesture and pointing direction and 
+pointed objects under some minimal assumption. And as I've told you before, I've used 
+the verbal commands to extract certain information, to kind of facillaitate
+formulation of a structured language for robots.
+
+
+
+So I think with what I have I can write a paper of length around 8 pages ieee double
+column format.
+
+I will finish the paper by this weekend and share it with you.
+
+I just want to get done with this paper with whatever I have and later on
+can fix and add things on top of it.
+
