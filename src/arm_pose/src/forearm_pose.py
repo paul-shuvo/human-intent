@@ -467,8 +467,9 @@ class ForearmPosePublish:
         self.pub = rospy.Publisher("/forearm_pose", Floats, queue_size=10)
 
         r = rospy.Rate(self.frame_rate)  # 10Hz
-        image_sub = message_filters.Subscriber("/kinect2/qhd/image_color", Image)
+        # image_sub = message_filters.Subscriber("/kinect2/qhd/image_color_rect", Image)
         # image_sub = message_filters.Subscriber("/camera/rgb/image_rect_color", Image)
+        image_sub = message_filters.Subscriber("/camera/rgb/image_color", Image)
         ts = message_filters.ApproximateTimeSynchronizer(
             [image_sub], 10, 1, allow_headerless=True
         )  # Changed code

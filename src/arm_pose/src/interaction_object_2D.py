@@ -9,6 +9,7 @@ np.warnings.filterwarnings('error', category=np.VisibleDeprecationWarning)
 import json
 import cv2
 import ros_numpy
+from utils import draw_angled_text
 
 # from rospy.numpy_msg import numpy_msg
 import message_filters
@@ -23,6 +24,16 @@ from geometry_msgs.msg import PoseStamped, Pose, PoseArray
 from time import time
 from fg._3D import Point3D, Line3D, Plane
 from fg._2D import Line
+
+import spacy
+from spacy.matcher import Matcher
+nlp = spacy.load('en_core_web_sm')
+nlp.Defaults.stop_words -= {'give', 'Give', 'put', 'Put', 'it',
+                            'this', 'This', 'that', 'That',
+                            'here', 'Here', 'there', 'There'}
+# nlp.Defaults.stop_words += {'thing'}
+
+matcher = Matcher(nlp.vocab)
 
 class ObjectInteraction:
     def __init__(self):
@@ -52,23 +63,49 @@ class ObjectInteraction:
         self.detection_count_alt = {
             'cheez-it': 0,
             'book-2': 0,
+            'book-1': 0,
             'book-3': 0
         }
         self.detection_count = {
             'cheez-it': 0,
             'book-2': 0,
+            'book-1': 0,
             'book-3': 0
         }
         self.detection_voting_count = {
             'cheez-it': 0,
             'book-2': 0,
+            'book-1': 0,
             'book-3': 0
         }
         self.voting_interval = 0
         self.detection_voting = {
             'cheez-it': 0,
             'book-2': 0,
+            'book-1': 0,
             'book-3': 0
+        }
+        
+        nlp = spacy.load('en_core_web_sm')
+        nlp.Defaults.stop_words -= {'give', 'Give', 'put', 'Put', 'it',
+                                    'this', 'This', 'that', 'That',
+                                    'here', 'Here', 'there', 'There'}
+        # nlp.Defaults.stop_words += {'thing'}
+
+        self.matcher = Matcher(nlp.vocab)
+        self.object_attr = {
+            'cheez-it': {
+                'attribute': ['red'],
+                'position': 'left'
+            },
+            'book-1': {
+                'attribute': ['blue'],
+                'position': 'center'
+            },
+            'book-2': {
+                'attribute': ['red'],
+                'position': 'right'
+            }
         }
         ####### Experiment Variable #######
 
@@ -76,8 +113,8 @@ class ObjectInteraction:
         # self.pub = rospy.Publisher("/object_selected", PoseStamped, queue_size=10)
         # self.msg = PoseStamped()
 
-        self.pose_array_pub = rospy.Publisher('/object_pose_array',
-                                              PoseArray, queue_size=10)
+        # self.pose_array_pub = rospy.Publisher('/object_pose_array',
+        #                                       PoseArray, queue_size=10)
         self.pose_array = PoseArray()
 
         self.image_pub = rospy.Publisher('/selected_object',
@@ -92,8 +129,11 @@ class ObjectInteraction:
         forearm_pose_sub = message_filters.Subscriber("/forearm_pose", Floats)
         # pointcloud_sub = message_filters.Subscriber("/camera/depth_registered/points", PointCloud2)
         detected_object_sub = message_filters.Subscriber("/detected_object", String)
+        # self.image_sub = message_filters.Subscriber(
+        #                     "/kinect2/qhd/image_color", Image
+        #                 )
         self.image_sub = message_filters.Subscriber(
-                            "/kinect2/qhd/image_color", Image
+                            "/camera/rgb/image_color", Image
                         )
         ts = message_filters.ApproximateTimeSynchronizer(
             [forearm_pose_sub, detected_object_sub, self.image_sub],
@@ -128,13 +168,14 @@ class ObjectInteraction:
         min_x = 0
         max_x = frame.shape[1]
         y = np.mean(arr[:, :, 1]).astype(np.int16) if len(arr.shape) is 3 else np.mean(arr[ :, 1]).astype(np.int32)
-        frame = cv2.line(
-            frame,
-            tuple([min_x, y]),
-            tuple([max_x, y]),
-            (255, 0, 255),
-            2,
-        )
+                
+        # frame = cv2.line(
+        #     frame,
+        #     tuple([min_x, y]),
+        #     tuple([max_x, y]),
+        #     (255, 0, 255),
+        #     2,
+        # )
         
         frame = cv2.line(
             frame,
@@ -167,9 +208,15 @@ class ObjectInteraction:
         
         # print(dist_)
         so = list(object_dict.keys())[np.argmin(np.min(dist_, axis=1))]
+        pts = np.array(object_dict[so], np.int32)
+        pts = pts.reshape((-1, 1, 2))
+        frame = cv2.polylines(frame,[pts], True, (0,255,0), 3, cv2.LINE_AA)
+        frame = self.annotate_frame(object_name=so, dst=pts, viz_frame=frame)
         self.detection_count_alt[so] += 1
         print(f'algo 2: {self.detection_count_alt}')
 
+        info = self.extract_object_info("give me that")
+        print(f'object_info: {info}, object: {so}')
         
         
         # eye_line = Line(self.arm_points[[5,3]])
@@ -180,26 +227,25 @@ class ObjectInteraction:
         selected_object = list(object_dict.keys())[np.argmin(object_distance)] 
         self.total_frame += 1
         self.detection_count[selected_object] += 1
-        # print(f'intersection arm line: {intersection_arm_line}')
-        print(f'algo 1: {self.detection_count}')
-        frame = cv2.line(
-            frame,
-            tuple(self.arm_points[3]),
-            tuple(intersection_arm_line),
-            (155, 100, 200),
-            2,
-        )
         
-        # frame = cv2.line(
-        #     frame,
-        #     tuple(self.arm_points[3]),
-        #     tuple(intersection_eye_line),
-        #     (50, 120, 255),
-        #     2,
-        # )
-        
-        frame = cv2.circle(frame, tuple(intersection_arm_line), radius=10, color=(255, 0, 0), thickness=-1)
-        # frame = cv2.circle(frame, tuple(intersection_eye_line), radius=10, color=(0, 255, 0), thickness=-1)
+        image_str = f'Action: {info["action"]}\nObject: {so}'
+        image_str = image_str.split('\n')
+        # for i in range(len(image_str)):
+        #     image = cv2.putText(image, image_str[i], (600, 200 + int(40*i)), 
+        #                         cv2.FONT_HERSHEY_SIMPLEX, 0.75, 
+        #                         (255, 0, 0), 1, cv2.LINE_AA)
+        pad = 15
+        min_x, min_y, max_x = 450, 50, 600
+        max_y = min_y+int(pad*(1+len(image_str)))
+        frame = cv2.rectangle(frame, (min_x, min_y), (max_x, max_y), (55,55,180), 2)
+        points = np.array([[min_x, min_y], [min_x, max_y], [max_x, max_y], [max_x, min_y]],
+                  dtype=np.int32)
+
+        cv2.fillPoly(frame, [points], (100, 180, 150))
+        for i in range(len(image_str)):
+            frame = cv2.putText(frame, image_str[i], (min_x+pad, min_y+int(pad*(i+1))), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, 
+                                (255, 0, 0), 1, cv2.LINE_AA)
 
         msg = ros_numpy.msgify(Image, frame, encoding='bgr8')
         self.image_pub.publish(msg)
@@ -208,8 +254,142 @@ class ObjectInteraction:
         # cv2.imshow("preview", frame)
         # cv2.waitKey(10)
 
+    # def extract_object_info(self, instruction_msg):
+        
+    #     matcher.add("action", None, [
+    #         {"POS": "VERB"},
+    #         {"TEXT": "me", "OP": "?"},
+    #         {"POS": "DET", "OP": "*"},
+    #         {"TEXT": "that", "OP": "*"},
+    #         {"POS": "ADJ", "OP": "*"},
+    #         {"POS": "NOUN", "OP": "*"}])
+        
+    #     matcher.add("object", None, [
+    #         {"POS": "VERB"},
+    #         {"TEXT": "me", "OP": "*"},
+    #         {"POS": "DET", "OP": "*"},
+    #         {"TEXT": "that", "OP": "*"},
+    #         {"POS": "ADJ", "OP": "*"},
+    #         {"POS": "NOUN", "OP": "+"}])
+    #     matcher.add("pointing-identifier", None, [{"LEMMA": {"IN": ["this", "that"]}}])
+    #     matcher.add("attr", None, [{"POS": "ADJ", "OP": "+"}, {"POS": "NOUN"}])
+    #     matcher.add("pos", None, [{"LEMMA": {"IN": ["right", "left", "front", "back"]}}])
 
+    #     doc = nlp(instruction_msg)
+    #     matches = matcher(doc)
+    #     object_info = {}
+    #     object_name = ""
+    #     action = ""
+    #     attr = []
+    #     pos = ""
+    #     pointing_identifier = False
 
+    #     for match_id, start, end in matches:
+    #         string_id = nlp.vocab.strings[match_id]
+    #         print(string_id)
+    #         if string_id == "action":
+
+    #             action = doc[start]
+            
+    #         if string_id == "object":
+    #             object_name = doc[end-1]
+            
+    #         if string_id == "attr":
+    #             object_name = doc[end-1]
+    #             attr.append(doc[start])
+            
+    #         if string_id == "pointing-identifier":
+    #             pointing_identifier = True
+            
+    #         if string_id == "pos":
+    #             pos = doc[start]
+    #         span = doc[start:end]  # The matched span
+    #         print(string_id, start, end, span.text)
+
+    #     object_info[object_name] = {}
+    #     object_info[object_name]["action"] = action
+    #     object_info[object_name]["attr"] = attr
+    #     object_info[object_name]["pos"] = pos
+    #     object_info[object_name]["pointing-identifier"] = pointing_identifier
+        
+    #     return object_info
+
+    def extract_object_info(self, instruction_msg):
+        # matcher.add("action", None, [{"POS": "VERB"},
+        #                              {"POS": "PRON", "OP": "*"},
+        #                              {},
+        #                              {"POS": "ADJ", "OP": "*"},
+        #                              {"POS": "NOUN"}])
+        matcher.add("action", None, [
+            {"POS": "VERB"},
+            {"TEXT": "me", "OP": "?"},
+            {"POS": "DET", "OP": "*"},
+            {"TEXT": "that", "OP": "*"},
+            {"POS": "ADJ", "OP": "*"},
+            {"POS": "NOUN", "OP": "*"}])
+        matcher.add("navigation", None, [{"LEMMA": {"IN": ["go", "come", "move", "turn"]}}])
+
+        matcher.add("attr", None, [{"TAG": "JJ", "OP": "+"}, {"POS": "NOUN"}])
+        matcher.add("pos", None, [{"LEMMA": {"IN": ["right", "left", "front", "back"]}}])
+
+        doc = nlp(instruction_msg)
+        matches = matcher(doc)
+        object_info = {}
+        object_name = "None"
+        action = "None"
+        attr = []
+        pos = "None"
+        navigation = "None"
+        is_navigation = False
+        
+        for match_id, start, end in matches:
+            string_id = nlp.vocab.strings[match_id]
+            # print(string_id)
+            if string_id == "action":
+                object_name = doc[end-1]
+                action = doc[start]
+            if string_id == "navigation":
+                is_navigation = True
+                navigation = doc[start]
+            if string_id == "attr":
+                attr.append(doc[start])
+
+            if string_id == "pos":
+                pos = doc[start]
+
+        object_info["no"] = self.counter
+        self.counter += 1
+        object_info["object"] = object_name
+        object_info["action"] = navigation if is_navigation else action
+        object_info["attr"] = "None" if len(attr) is 0 else attr
+        object_info["pos"] = pos
+        return object_info
+    
+    def annotate_frame(self, viz_frame, dst, object_name):
+        # viz_frame = cv2.polylines(
+        #                             viz_frame,
+        #                             [dst],
+        #                             True,
+        #                             255,
+        #                             1,
+        #                             cv2.LINE_AA
+        #                         )
+
+        dst = np.squeeze(dst, axis=1)
+        tc = (dst[3] + dst[0])/2
+        tc = (tc + dst[0])/2
+
+        text_loc = np.array([tc[0], tc[1] - 20], dtype=np.int16)
+        base, tangent = dst[3] - dst[0]
+        text_angle = np.arctan2(-tangent, base)*180/np.pi
+        viz_frame = draw_angled_text(
+                            object_name,
+                            text_loc,
+                            text_angle,
+                            viz_frame
+                        )
+        return viz_frame
+    
 def read_depth(width, height, data):
     # read function
     if (height >= data.height) or (width >= data.width):
