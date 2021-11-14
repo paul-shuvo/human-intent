@@ -144,3 +144,4 @@ cython_debug/
 # editor config
 .vscode/
 .idea/
+*/AlphaPose/*

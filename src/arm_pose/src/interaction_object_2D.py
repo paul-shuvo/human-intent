@@ -168,14 +168,6 @@ class ObjectInteraction:
         min_x = 0
         max_x = frame.shape[1]
         y = np.mean(arr[:, :, 1]).astype(np.int16) if len(arr.shape) is 3 else np.mean(arr[ :, 1]).astype(np.int32)
-                
-        # frame = cv2.line(
-        #     frame,
-        #     tuple([min_x, y]),
-        #     tuple([max_x, y]),
-        #     (255, 0, 255),
-        #     2,
-        # )
         
         frame = cv2.line(
             frame,
@@ -192,10 +184,7 @@ class ObjectInteraction:
             (100, 187, 255),
             2,
         )
-        # print(frame.dtype)
-        # cv2.imshow('Visualize', frame)
-        # cv2.waitKey()
-        # arm_line = Line(self.arm_points[[0,2]])
+
         arm_line = Line(self.arm_points[[1,3]])
         
         for i in range(dist_.shape[0]):
@@ -230,10 +219,7 @@ class ObjectInteraction:
         
         image_str = f'Action: {info["action"]}\nObject: {so}'
         image_str = image_str.split('\n')
-        # for i in range(len(image_str)):
-        #     image = cv2.putText(image, image_str[i], (600, 200 + int(40*i)), 
-        #                         cv2.FONT_HERSHEY_SIMPLEX, 0.75, 
-        #                         (255, 0, 0), 1, cv2.LINE_AA)
+
         pad = 15
         min_x, min_y, max_x = 450, 50, 600
         max_y = min_y+int(pad*(1+len(image_str)))
@@ -249,11 +235,7 @@ class ObjectInteraction:
 
         msg = ros_numpy.msgify(Image, frame, encoding='bgr8')
         self.image_pub.publish(msg)
-        # cv2.startWindowThread()
-        # cv2.namedWindow("preview")
-        # cv2.imshow("preview", frame)
-        # cv2.waitKey(10)
-
+        
     # def extract_object_info(self, instruction_msg):
         
     #     matcher.add("action", None, [

@@ -23,7 +23,8 @@ def draw_angled_text(object_name: str, text_loc: np.ndarray, text_angle: float, 
     numpy.ndarray
         Resultant image
     """
-    text_color = (32, 112, 207)
+    # text_color = (176, 254, 243)
+    text_color = (67, 164, 254)
     text_image = np.zeros(sensor_image.shape, dtype=np.uint8)
     M = cv2.getRotationMatrix2D(tuple(text_loc), text_angle, 1)
     cv2.putText(text_image,
@@ -32,7 +33,7 @@ def draw_angled_text(object_name: str, text_loc: np.ndarray, text_angle: float, 
                 cv2.FONT_HERSHEY_PLAIN,
                 1,
                 text_color,
-                1)
+                2)
 
     text_image = cv2.warpAffine(
                     text_image,
